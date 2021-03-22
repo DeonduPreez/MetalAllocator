@@ -89,27 +89,21 @@ public void OnClientCookiesCached(int client) {
     char tpistol[WEAPON_STRING_LENGTH];
     char tpistolonly[WEAPON_STRING_LENGTH];
     GetClientCookie(client, g_hCTRifleChoiceCookie, ctrifle, sizeof(ctrifle));
-    GetClientCookie(client, g_hCTPistolChoiceCookie, ctrifle, sizeof(ctrifle));
-    GetClientCookie(client, g_hCTPistolOnlyChoiceCookie, ctrifle, sizeof(ctrifle));
+    GetClientCookie(client, g_hCTPistolChoiceCookie, ctpistol, sizeof(ctpistol));
+    GetClientCookie(client, g_hCTPistolOnlyChoiceCookie, ctpistolonly, sizeof(ctpistolonly));
     GetClientCookie(client, g_hTRifleChoiceCookie, trifle, sizeof(trifle));
-    GetClientCookie(client, g_hTPistolChoiceCookie, trifle, sizeof(trifle));
-    GetClientCookie(client, g_hTPistolOnlyChoiceCookie, trifle, sizeof(trifle));
+    GetClientCookie(client, g_hTPistolChoiceCookie, tpistol, sizeof(tpistol));
+    GetClientCookie(client, g_hTPistolOnlyChoiceCookie, tpistolonly, sizeof(tpistolonly));
+    bool awpchoice = GetCookieBool(client, g_hAwpChoiceCookie);
     
     
-    g_CTRifleChoice[client] = ctrifle;
-    g_CTPistolChoice[client] = ctpistol;
-    g_CTPistolOnlyChoice[client] = ctpistolonly;
-    g_TRifleChoice[client] = trifle;
-    g_TPistolChoice[client] = tpistol;
-    g_TPistolOnlyChoice[client] = tpistolonly;
-    g_AwpChoice[client] = GetCookieBool(client, g_hAwpChoiceCookie);
-    
-    PrintToServer("ctrifle: %s", ctrifle);
-    PrintToServer("ctpistol: %s", ctpistol);
-    PrintToServer("ctpistolonly: %s", ctpistolonly);
-    PrintToServer("trifle: %s", trifle);
-    PrintToServer("tpistol: %s", tpistol);
-    PrintToServer("tpistolonly: %s", tpistolonly);
+    g_CTRifleChoice[client] = StrEqual(ctrifle, "") ? "m4a1" : ctrifle;
+    g_CTPistolChoice[client] = StrEqual(ctpistol, "") ? "usp_silencer" : ctpistol;
+    g_CTPistolOnlyChoice[client] = StrEqual(ctpistolonly, "") ? "usp_silencer" : ctpistolonly;
+    g_TRifleChoice[client] = StrEqual(trifle, "") ? "ak47" : trifle;
+    g_TPistolChoice[client] = StrEqual(tpistol, "") ? "glock" : tpistol;
+    g_TPistolOnlyChoice[client] = StrEqual(tpistolonly, "") ? "glock" : tpistolonly;
+    g_AwpChoice[client] = awpchoice;
 }
 
 static void SetNades(char nades[NADE_STRING_LENGTH]) {
@@ -142,6 +136,9 @@ public void WeaponAllocator(ArrayList tPlayers, ArrayList ctPlayers, Bombsite bo
 
     // T setup
     for (int i = 0; i < tCount; i++) {
+    	primary = "weapon_";
+    	secondary = "weapon_";
+
         int client = tPlayers.Get(i);
 
         if (isPistolRound)
@@ -167,6 +164,9 @@ public void WeaponAllocator(ArrayList tPlayers, ArrayList ctPlayers, Bombsite bo
 
     // CT setup
     for (int i = 0; i < ctCount; i++) {
+    	primary = "weapon_";
+    	secondary = "weapon_";
+
         int client = ctPlayers.Get(i);
 
         if (isPistolRound)
