@@ -57,7 +57,7 @@ public void OnMapStart()
 public Action Event_RoundStart(Event event, const char[] name, bool dontBroadcast)
 {
     RoundCount++;
-    PrintToChatAll("Round Started: %d", RoundCount);
+    PrintToServer("Round Started: %d", RoundCount);
     return Plugin_Continue;
 } 
 
@@ -121,7 +121,6 @@ public void WeaponAllocator(ArrayList tPlayers, ArrayList ctPlayers, Bombsite bo
     int ctCount = ctPlayers.Length;
 
     bool isPistolRound = RoundCount < 5;
-    PrintToChatAll("isPistolRound: %b", isPistolRound);
 
     char primary[WEAPON_STRING_LENGTH] = "weapon_";
     char secondary[WEAPON_STRING_LENGTH] = "weapon_";
