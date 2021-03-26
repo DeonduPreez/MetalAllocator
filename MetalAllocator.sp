@@ -28,7 +28,7 @@ Handle g_hTPistolOnlyChoiceCookie;
 Handle g_hCTAwpChoiceCookie;
 Handle g_hTAwpChoiceCookie;
 
-int RoundCount = -3;
+int RoundCount = 0;
 
 public Plugin myinfo = {
     name = "CS:GO Retakes: metal weapon allocator",
@@ -47,21 +47,12 @@ public void OnPluginStart() {
     g_hTPistolOnlyChoiceCookie = RegClientCookie("retakes_tpistolonlychoice", "T Pistol Only Choice", CookieAccess_Private);
     g_hCTAwpChoiceCookie = RegClientCookie("retakes_ctawpchoice", "", CookieAccess_Private);
     g_hTAwpChoiceCookie = RegClientCookie("retakes_tawpchoice", "", CookieAccess_Private);
-    
-    HookEvent("round_start", Event_RoundStart);
 }
 
 public void OnMapStart()
 {
     PrintToServer("Map started");
-    RoundCount = -3;
-}
-
-public Action Event_RoundStart(Event event, const char[] name, bool dontBroadcast)
-{
-    RoundCount++;
-    PrintToServer("Round Started: %d", RoundCount);
-    return Plugin_Continue;
+    RoundCount = 0;
 }
 
 public void Retakes_OnGunsCommand(int client) {
@@ -70,6 +61,7 @@ public void Retakes_OnGunsCommand(int client) {
 
 public void Retakes_OnWeaponsAllocated(ArrayList tPlayers, ArrayList ctPlayers, Bombsite bombsite) {
     WeaponAllocator(tPlayers, ctPlayers, bombsite);
+    RoundCount++;
 }
 
 /**
