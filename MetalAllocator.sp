@@ -93,14 +93,21 @@ public void OnClientCookiesCached(int client) {
     bool ctAwpchoice = GetCookieBool(client, g_hCTAwpChoiceCookie);
     bool tAwpchoice = GetCookieBool(client, g_hTAwpChoiceCookie);
 
-    g_CTRifleChoice[client] = StrEqual(ctrifle, "") ? "m4a1" : ctrifle;
-    g_CTPistolChoice[client] = StrEqual(ctpistol, "") ? "usp_silencer" : ctpistol;
-    g_CTPistolOnlyChoice[client] = ctpistolonly;
-    g_TRifleChoice[client] = StrEqual(trifle, "") ? "ak47" : trifle;
-    g_TPistolChoice[client] = StrEqual(tpistol, "") ? "glock" : tpistol;
-    g_TPistolOnlyChoice[client] = tpistolonly;
+    g_CTRifleChoice[client] = IsValidWeapon(ctrifle) ? ctrifle : "m4a1";
+    g_CTPistolChoice[client] = IsValidWeapon(ctpistol) ? ctpistol : "usp_silencer";
+    g_CTPistolOnlyChoice[client] = IsValidWeapon(ctpistolonly) ? ctpistolonly : g_CTPistolChoice[client];
+    g_TRifleChoice[client] = IsValidWeapon(trifle) ? trifle : "ak47";
+    g_TPistolChoice[client] = IsValidWeapon(tpistol) ? tpistol : "glock";
+    g_TPistolOnlyChoice[client] = IsValidWeapon(tpistolonly) ? tpistolonly : g_TPistolChoice[client];
     g_CTAwpChoice[client] = ctAwpchoice;
     g_TAwpChoice[client] = tAwpchoice;
+}
+
+static bool IsValidWeapon(char weapon[WEAPON_STRING_LENGTH])
+{
+	char weaponDisplay[255];
+	AppendWeaponDisplay(weaponDisplay, sizeof(weaponDisplay), weapon);
+	return !StrEqual(weaponDisplay, "");
 }
 
 static bool SetNadesGetKit(char nades[NADE_STRING_LENGTH], int team, bool isPistolRound, bool ctHasKit) {
