@@ -192,7 +192,11 @@ public void WeaponAllocator(ArrayList tPlayers, ArrayList ctPlayers, Bombsite bo
         health = 100;
         kit = false;
         SetNadesGetKit(nades, CS_TEAM_T, isPistolRound, false);
-        kevlar = (!isPistolRound || (StrEqual(nades, ""))) ? 100 : 0;
+        kevlar = !isPistolRound ? 100 : isPistolRound && StrEqual(secondary, "weapon_glock") ? 100 : 0;
+        if (isPistolRound && kevlar > 0)
+        {
+        	kevlar = (!isPistolRound || (StrEqual(nades, ""))) ? 100 : 0;
+        }
 
         Retakes_SetPlayerInfo(client, primary, secondary, nades, health, kevlar, helmet, kit);
     }
@@ -235,7 +239,11 @@ public void WeaponAllocator(ArrayList tPlayers, ArrayList ctPlayers, Bombsite bo
         Format(clientName, sizeof(clientName), "hasKit: %b", kit);
         StrCat(clientName, sizeof(clientName), hasKit);
 
-        kevlar = !isPistolRound || (isPistolRound && !kit && (StrEqual(nades, ""))) ? 100 : 0;
+        kevlar = !isPistolRound ? 100 : isPistolRound && (StrEqual(secondary, "weapon_hkp2000") || StrEqual(secondary, "weapon_usp_silencer")) ? 100 : 0;
+        if (isPistolRound && kevlar > 0)
+        {
+            kevlar = !isPistolRound || (isPistolRound && !kit && (StrEqual(nades, ""))) ? 100 : 0;
+        }
 
         Retakes_SetPlayerInfo(client, primary, secondary, nades, health, kevlar, helmet, kit);
     }
@@ -259,6 +267,10 @@ void AppendWeaponDisplay(char[] buffer, int bufferSize, char[] weapon)
 	else if (StrEqual(weapon, "revolver"))
 	{
 		StrCat(buffer, bufferSize, "Revolver");
+	}
+	else if (StrEqual(weapon, "cz75a"))
+	{
+		StrCat(buffer, bufferSize, "CZ75-Auto");
 	}
 	// CT Exclusive Weapons
 	else if (StrEqual(weapon, "m4a1"))
@@ -471,6 +483,7 @@ public void SetCTPistolMenuItems(Menu menu)
     menu.AddItem("usp_silencer", "USP-S");
     menu.AddItem("hkp2000", "P2000");
     menu.AddItem("fiveseven", "Five-Seven");
+    menu.AddItem("cz75a", "CZ75-Auto");
     menu.AddItem("p250", "P250");
     menu.AddItem("deagle", "Deagle");
     menu.AddItem("revolver", "Revolver");
@@ -563,6 +576,7 @@ public void SetTPistolMenuItems(Menu menu)
 {
     menu.AddItem("glock", "Glock-18");
     menu.AddItem("tec9", "Tec-9");
+    menu.AddItem("cz75a", "CZ75-Auto");
     menu.AddItem("p250", "P250");
     menu.AddItem("deagle", "Deagle");
     menu.AddItem("revolver", "Revolver");
