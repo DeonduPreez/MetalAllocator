@@ -29,6 +29,9 @@ Handle g_hCTAwpChoiceCookie;
 Handle g_hTAwpChoiceCookie;
 
 int RoundCount = 0;
+int EnemyWeaponWeight = 10;
+
+ConVar g_cvMAEnemyWeaponWeight;
 
 public Plugin myinfo = {
     name = "CS:GO Retakes: metal weapon allocator",
@@ -47,6 +50,14 @@ public void OnPluginStart() {
     g_hTPistolOnlyChoiceCookie = RegClientCookie("retakes_tpistolonlychoice", "T Pistol Only Choice", CookieAccess_Private);
     g_hCTAwpChoiceCookie = RegClientCookie("retakes_ctawpchoice", "", CookieAccess_Private);
     g_hTAwpChoiceCookie = RegClientCookie("retakes_tawpchoice", "", CookieAccess_Private);
+    g_cvMAEnemyWeaponWeight = CreateConVar("ma_enemyweaponweight", "10", "Sets the weight of the chance to receive an enemy team weapon", FCVAR_NOTIFY|FCVAR_SPONLY|FCVAR_ARCHIVE|FCVAR_DONTRECORD|FCVAR_REPLICATED|FCVAR_SPONLY);
+    g_cvMAEnemyWeaponWeight.AddChangeHook(EnemyWeaponWeightChange);
+    EnemyWeaponWeight = GetConVarInt(g_cvMAEnemyWeaponWeight);
+}
+
+public int EnemyWeaponWeightChange(Handle cvar, const char[] oldValue, const char[] newValue)
+{
+	EnemyWeaponWeight = StringToInt(newValue);
 }
 
 public void OnMapStart()
@@ -142,6 +153,11 @@ static bool SetNadesGetKit(char nades[NADE_STRING_LENGTH], int team, bool isPist
     return !ctHasKit && hasKit;
 }
 
+static bool GiveEnemyTeamWeapon()
+{
+	return GetRandomInt(0, 100) < EnemyWeaponWeight;
+}
+
 public void WeaponAllocator(ArrayList tPlayers, ArrayList ctPlayers, Bombsite bombsite) {
     int tCount = tPlayers.Length;
     int ctCount = ctPlayers.Length;
@@ -180,7 +196,17 @@ public void WeaponAllocator(ArrayList tPlayers, ArrayList ctPlayers, Bombsite bo
             giveTAwp = false;
             StrCat(secondary, sizeof(secondary), g_TPistolChoice[client]);
         } else {
-        	StrCat(primary, sizeof(primary), g_TRifleChoice[client]);
+        	if (GiveEnemyTeamWeapon())
+        	{
+        		StrCat(primary, sizeof(primary), g_CTRifleChoice[client]);
+        		char primaryDisplayString[255] = "";
+        		AppendWeaponDisplay(primaryDisplayString, sizeof(primaryDisplayString), g_CTRifleChoice[client]);
+        		PrintToChat(client, "You received a %s to simulate a weapon pickup on the previous round", primaryDisplayString);
+        	}
+        	else
+        	{
+        		StrCat(primary, sizeof(primary), g_TRifleChoice[client]);
+        	}
         	StrCat(secondary, sizeof(secondary), g_TPistolChoice[client]);
         }
         
@@ -218,7 +244,17 @@ public void WeaponAllocator(ArrayList tPlayers, ArrayList ctPlayers, Bombsite bo
             StrCat(primary, sizeof(primary), "awp");
             giveCTAwp = false;
         } else {
-        	StrCat(primary, sizeof(primary), g_CTRifleChoice[client]);
+        	if (GiveEnemyTeamWeapon())
+        	{
+        		StrCat(primary, sizeof(primary), g_TRifleChoice[client]);
+        		char primaryDisplayString[255] = "";
+        		AppendWeaponDisplay(primaryDisplayString, sizeof(primaryDisplayString), g_TRifleChoice[client]);
+        		PrintToChat(client, "You received a %s to simulate a weapon pickup on the previous round", primaryDisplayString);
+        	}
+        	else
+        	{
+        		StrCat(primary, sizeof(primary), g_CTRifleChoice[client]);
+        	}
         }
         
         if (StrEqual(secondary, weaponConstText))
