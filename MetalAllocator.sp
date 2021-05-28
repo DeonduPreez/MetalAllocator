@@ -35,7 +35,7 @@ ConVar g_cvMAEnemyWeaponWeight;
 
 public Plugin myinfo = {
     name = "CS:GO Retakes: metal weapon allocator",
-    author = "metalinjection",
+    author = "Metal Injection",
     description = "Defines a weapon allocation policy and lets players set weapon preferences",
     version = PLUGIN_VERSION,
     url = "https://github.com/splewis/csgo-retakes"
@@ -62,7 +62,6 @@ public int EnemyWeaponWeightChange(Handle cvar, const char[] oldValue, const cha
 
 public void OnMapStart()
 {
-    PrintToServer("Map started");
     RoundCount = 0;
 }
 
@@ -178,6 +177,7 @@ public void WeaponAllocator(ArrayList tPlayers, ArrayList ctPlayers, Bombsite bo
 
     bool giveTAwp = true;
     bool giveCTAwp = true;
+    int teammatesWithNades = 0;
 
     // T setup
     for (int i = 0; i < tCount; i++) {
@@ -217,7 +217,11 @@ public void WeaponAllocator(ArrayList tPlayers, ArrayList ctPlayers, Bombsite bo
 
         health = 100;
         kit = false;
-        SetNadesGetKit(nades, CS_TEAM_T, isPistolRound, false);
+        if (!isPistolRound || teammatesWithNades <= 2)
+        {
+        	SetNadesGetKit(nades, CS_TEAM_T, isPistolRound, false);
+        	teammatesWithNades = teammatesWithNades + (StrEqual(nades, "") ? 0 : 1);
+        }
         kevlar = !isPistolRound ? 100 : isPistolRound && StrEqual(secondary, "weapon_glock") ? 100 : 0;
         if (isPistolRound && kevlar > 0)
         {
@@ -226,7 +230,8 @@ public void WeaponAllocator(ArrayList tPlayers, ArrayList ctPlayers, Bombsite bo
 
         Retakes_SetPlayerInfo(client, primary, secondary, nades, health, kevlar, helmet, kit);
     }
-
+    
+    teammatesWithNades = 0;
     bool ctHasKit = false;
     // CT setup
     for (int i = 0; i < ctCount; i++) {
@@ -249,7 +254,7 @@ public void WeaponAllocator(ArrayList tPlayers, ArrayList ctPlayers, Bombsite bo
         		StrCat(primary, sizeof(primary), g_TRifleChoice[client]);
         		char primaryDisplayString[255] = "";
         		AppendWeaponDisplay(primaryDisplayString, sizeof(primaryDisplayString), g_TRifleChoice[client]);
-        		PrintToChat(client, "You received a %s to simulate a weapon pickup on the previous round", primaryDisplayString);
+        		PrintToChat(client, "You received the %s to simulate a weapon pickup on the previous round", primaryDisplayString);
         	}
         	else
         	{
@@ -263,7 +268,12 @@ public void WeaponAllocator(ArrayList tPlayers, ArrayList ctPlayers, Bombsite bo
         }
         
         health = 100;
-        kit = SetNadesGetKit(nades, CS_TEAM_CT, isPistolRound, ctHasKit); // On pistol round, will only have a kit if they have no nades
+        if (!isPistolRound || teammatesWithNades <= 2)
+        {
+        	kit = SetNadesGetKit(nades, CS_TEAM_CT, isPistolRound, ctHasKit); // On pistol round, will only have a kit if they have no nades
+        	teammatesWithNades = teammatesWithNades + (StrEqual(nades, "") ? 0 : 1);
+        }
+
         if (isPistolRound && kit)
         {
         	ctHasKit = true;
