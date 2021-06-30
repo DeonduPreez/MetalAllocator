@@ -11,6 +11,11 @@
 
 #define MENU_TIME_LENGTH 15
 
+#define WEAPON_MODE_ALL             0   /**< All weapons allowed. */
+#define WEAPON_MODE_PISTOLS         1   /**< Pistons only. */
+#define WEAPON_MODE_RIFLES          2   /**< Rifles only. */         // TODO : Implement rifles only
+#define WEAPON_MODE_RIFLES_NO_AWP   3   /**< Rifles, but no awps. */ // TODO : Implement rifles only with no awps
+
 char g_CTRifleChoice[MAXPLAYERS+1][WEAPON_STRING_LENGTH];
 char g_CTPistolChoice[MAXPLAYERS+1][WEAPON_STRING_LENGTH];
 char g_CTPistolOnlyChoice[MAXPLAYERS+1][WEAPON_STRING_LENGTH];
@@ -30,8 +35,10 @@ Handle g_hTAwpChoiceCookie;
 
 int RoundCount = 0;
 int EnemyWeaponWeight = 10;
+int WeaponMode = WEAPON_MODE_ALL;
 
 ConVar g_cvMAEnemyWeaponWeight;
+ConVar g_cvMAWeaponMode;
 
 public Plugin myinfo = {
     name = "CS:GO Retakes: metal weapon allocator",
@@ -51,13 +58,21 @@ public void OnPluginStart() {
     g_hCTAwpChoiceCookie = RegClientCookie("retakes_ctawpchoice", "", CookieAccess_Private);
     g_hTAwpChoiceCookie = RegClientCookie("retakes_tawpchoice", "", CookieAccess_Private);
     g_cvMAEnemyWeaponWeight = CreateConVar("ma_enemyweaponweight", "10", "Sets the weight of the chance to receive an enemy team weapon", FCVAR_NOTIFY|FCVAR_SPONLY|FCVAR_ARCHIVE|FCVAR_DONTRECORD|FCVAR_REPLICATED|FCVAR_SPONLY);
+    g_cvMAWeaponMode = CreateConVar("ma_weaponmode", "0", "Sets the mode of the server", FCVAR_NOTIFY|FCVAR_SPONLY|FCVAR_ARCHIVE|FCVAR_DONTRECORD|FCVAR_REPLICATED|FCVAR_SPONLY);
     g_cvMAEnemyWeaponWeight.AddChangeHook(EnemyWeaponWeightChange);
+    g_cvMAWeaponMode.AddChangeHook(WeaponModeChange);
     EnemyWeaponWeight = GetConVarInt(g_cvMAEnemyWeaponWeight);
+    WeaponMode = GetConVarInt(g_cvMAWeaponMode);
 }
 
 public int EnemyWeaponWeightChange(Handle cvar, const char[] oldValue, const char[] newValue)
 {
 	EnemyWeaponWeight = StringToInt(newValue);
+}
+
+public int WeaponModeChange(Handle cvar, const char[] oldValue, const char[] newValue)
+{
+	WeaponMode = StringToInt(newValue);
 }
 
 public void OnMapStart()
@@ -173,7 +188,6 @@ public void WeaponAllocator(ArrayList tPlayers, ArrayList ctPlayers, Bombsite bo
     int health = 100;
     int kevlar = 100;
     bool helmet = !isPistolRound;
-    bool kit = true;
 
     bool giveTAwp = true;
     bool giveCTAwp = true;
@@ -181,10 +195,20 @@ public void WeaponAllocator(ArrayList tPlayers, ArrayList ctPlayers, Bombsite bo
 
     // T setup
     for (int i = 0; i < tCount; i++) {
+    	nades = "";
     	primary = weaponConstText;
     	secondary = weaponConstText;
+    	if (WeaponMode == WEAPON_MODE_RIFLES_NO_AWP)
+		{
+			giveTAwp = false;
+		}
 
         int client = tPlayers.Get(i);
+        if (StrEqual(g_CTRifleChoice[client], "") || StrEqual(g_TRifleChoice[client], ""))
+        {
+        	PrintToChatAll("");
+        	OnClientCookiesCached(client);
+        }
 
         if (isPistolRound)
         {
@@ -216,29 +240,50 @@ public void WeaponAllocator(ArrayList tPlayers, ArrayList ctPlayers, Bombsite bo
         }
 
         health = 100;
-        kit = false;
-        if (!isPistolRound || teammatesWithNades <= 2)
+        if (!isPistolRound || teammatesWithNades < 2)
         {
         	SetNadesGetKit(nades, CS_TEAM_T, isPistolRound, false);
-        	teammatesWithNades = teammatesWithNades + (StrEqual(nades, "") ? 0 : 1);
+        	if (isPistolRound && !StrEqual(nades, ""))
+        	{
+        		teammatesWithNades++;
+    		}
         }
         kevlar = !isPistolRound ? 100 : isPistolRound && StrEqual(secondary, "weapon_glock") ? 100 : 0;
         if (isPistolRound && kevlar > 0)
         {
-        	kevlar = (!isPistolRound || (StrEqual(nades, ""))) ? 100 : 0;
+            kevlar = (!isPistolRound || (StrEqual(nades, ""))) ? 100 : 0;
         }
 
-        Retakes_SetPlayerInfo(client, primary, secondary, nades, health, kevlar, helmet, kit);
+        if (WeaponMode == WEAPON_MODE_PISTOLS)
+		{
+			primary = "";
+		}
+		else if (WeaponMode == WEAPON_MODE_RIFLES || WeaponMode == WEAPON_MODE_RIFLES_NO_AWP)
+		{
+			secondary = "";
+		}
+        Retakes_SetPlayerInfo(client, primary, secondary, nades, health, kevlar, helmet, false);
     }
     
     teammatesWithNades = 0;
     bool ctHasKit = false;
+    bool kit = false;
     // CT setup
     for (int i = 0; i < ctCount; i++) {
+    	kit = false;
+    	nades = "";
     	primary = weaponConstText;
     	secondary = weaponConstText;
+    	if (WeaponMode == WEAPON_MODE_RIFLES_NO_AWP)
+		{
+			giveTAwp = false;
+		}
 
         int client = ctPlayers.Get(i);
+        if (StrEqual(g_CTRifleChoice[client], "") || StrEqual(g_TRifleChoice[client], ""))
+        {
+        	OnClientCookiesCached(client);
+        }
 
         if (isPistolRound)
         {
@@ -268,10 +313,13 @@ public void WeaponAllocator(ArrayList tPlayers, ArrayList ctPlayers, Bombsite bo
         }
         
         health = 100;
-        if (!isPistolRound || teammatesWithNades <= 2)
+        if (!isPistolRound || teammatesWithNades < 2)
         {
         	kit = SetNadesGetKit(nades, CS_TEAM_CT, isPistolRound, ctHasKit); // On pistol round, will only have a kit if they have no nades
-        	teammatesWithNades = teammatesWithNades + (StrEqual(nades, "") ? 0 : 1);
+        	if (isPistolRound && (kit || !StrEqual(nades, "")))
+        	{
+        		teammatesWithNades++;
+    		}
         }
 
         if (isPistolRound && kit)
@@ -291,6 +339,14 @@ public void WeaponAllocator(ArrayList tPlayers, ArrayList ctPlayers, Bombsite bo
             kevlar = !isPistolRound || (isPistolRound && !kit && (StrEqual(nades, ""))) ? 100 : 0;
         }
 
+        if (WeaponMode == WEAPON_MODE_PISTOLS)
+		{
+			primary = "";
+		}
+		else if (WeaponMode == WEAPON_MODE_RIFLES || WeaponMode == WEAPON_MODE_RIFLES_NO_AWP)
+		{
+			secondary = "";
+		}
         Retakes_SetPlayerInfo(client, primary, secondary, nades, health, kevlar, helmet, kit);
     }
 }
@@ -385,11 +441,33 @@ public int MenuHandler_LoadoutSelection(Menu menu, MenuAction action, int param1
         menu.GetItem(param2, choice, sizeof(choice));
         if (StrEqual(choice, "ctmenu"))
         {
-        	CTLoadoutMenu(client);
+    	    if (WeaponMode == WEAPON_MODE_ALL)
+			{
+				CTLoadoutMenu(client);
+			}
+			else if (WeaponMode == WEAPON_MODE_PISTOLS)
+			{
+				CTPistolMenu(client);
+			}
+			else if (WeaponMode == WEAPON_MODE_RIFLES)
+			{
+				CTRifleMenu(client);
+			}
         }
         else
         {
-        	TLoadoutMenu(client);
+    	    if (WeaponMode == WEAPON_MODE_ALL)
+			{
+				TLoadoutMenu(client);
+			}
+			else if (WeaponMode == WEAPON_MODE_PISTOLS)
+			{
+				TPistolMenu(client);
+			}
+			else if (WeaponMode == WEAPON_MODE_RIFLES)
+			{
+				TRifleMenu(client);
+			}
         }
 	} else if (action == MenuAction_End) {
 		delete menu;
@@ -407,26 +485,21 @@ public void CTLoadoutMenu(int client) {
     StrCat(ctAwpString, sizeof(ctAwpString), g_CTAwpChoice[client] ? "Always" : "Never");
     
     Menu menu = new Menu(MenuHandler_CTLoadout);
+    menu.ExitBackButton = true;
     menu.SetTitle("CT Loadout:");
     menu.AddItem("ctrifle", ctRifleString);
     menu.AddItem("ctpistol", ctPistolString);
     menu.AddItem("ctawp", ctAwpString);
     menu.AddItem("ctpistolrounds", ctPistolOnlyString);
-    menu.AddItem("back", "Back");
     menu.Display(client, MENU_TIME_LENGTH);
 }
 
-public int MenuHandler_CTLoadout(Menu menu, MenuAction action, int param1, int param2) {
+public int MenuHandler_CTLoadout(Menu menu, MenuAction action, int client, int param2) {
     if (action == MenuAction_Select) {
-	    int client = param1;
 	    char choice[WEAPON_STRING_LENGTH];
 	    menu.GetItem(param2, choice, sizeof(choice));
 	    
-	    if (StrEqual(choice, "back"))
-	    {
-	    	ShowWeaponsMenu(client);
-	    }
-	    else if (StrEqual(choice, "ctrifle"))
+	    if (StrEqual(choice, "ctrifle"))
 	    {
 	    	CTRifleMenu(client);
 	    }
@@ -443,6 +516,8 @@ public int MenuHandler_CTLoadout(Menu menu, MenuAction action, int param1, int p
 	    	//CTAwpMenu(client);
 	    	GiveCTAwpMenu(client);
 	    }
+    } else if (action == MenuAction_Cancel && param2 == MenuCancel_ExitBack) {
+    	ShowWeaponsMenu(client);
     } else if (action == MenuAction_End) {
         delete menu;
     }
@@ -459,26 +534,21 @@ public void TLoadoutMenu(int client) {
     StrCat(tAwpString, sizeof(tAwpString), g_TAwpChoice[client] ? "Always" : "Never");
     
     Menu menu = new Menu(MenuHandler_TLoadout);
+    menu.ExitBackButton = true;
     menu.SetTitle("T Loadout:");
     menu.AddItem("trifle", tRifleString);
     menu.AddItem("tpistol", tPistolString);
     menu.AddItem("tawp", tAwpString);
     menu.AddItem("tpistolrounds", tPistolOnlyString);
-    menu.AddItem("back", "Back");
     menu.Display(client, MENU_TIME_LENGTH);
 }
 
-public int MenuHandler_TLoadout(Menu menu, MenuAction action, int param1, int param2) {
+public int MenuHandler_TLoadout(Menu menu, MenuAction action, int client, int param2) {
     if (action == MenuAction_Select) {
-        int client = param1;
         char choice[255];
         menu.GetItem(param2, choice, sizeof(choice));
         
-        if (StrEqual(choice, "back"))
-	    {
-	    	ShowWeaponsMenu(client);
-	    }
-        else if (StrEqual(choice, "trifle"))
+        if (StrEqual(choice, "trifle"))
         {
         	TRifleMenu(client);
         }
@@ -495,6 +565,8 @@ public int MenuHandler_TLoadout(Menu menu, MenuAction action, int param1, int pa
         	//TAwpMenu(client);
         	GiveTAwpMenu(client);
         }
+    } else if (action == MenuAction_Cancel && param2 == MenuCancel_ExitBack) {
+    	ShowWeaponsMenu(client);
     } else if (action == MenuAction_End) {
         delete menu;
     }
@@ -502,6 +574,7 @@ public int MenuHandler_TLoadout(Menu menu, MenuAction action, int param1, int pa
 
 public void CTRifleMenu(int client) {
     Menu menu = new Menu(MenuHandler_CTRifle);
+    menu.ExitBackButton = true;
     menu.SetTitle("Select a CT rifle:");
     menu.AddItem("m4a1", "M4A4");
     menu.AddItem("m4a1_silencer", "M4A1-S");
@@ -511,14 +584,15 @@ public void CTRifleMenu(int client) {
     menu.Display(client, MENU_TIME_LENGTH);
 }
 
-public int MenuHandler_CTRifle(Menu menu, MenuAction action, int param1, int param2) {
+public int MenuHandler_CTRifle(Menu menu, MenuAction action, int client, int param2) {
     if (action == MenuAction_Select) {
-        int client = param1;
         char choice[WEAPON_STRING_LENGTH];
         menu.GetItem(param2, choice, sizeof(choice));
         g_CTRifleChoice[client] = choice;
         SetClientCookie(client, g_hCTRifleChoiceCookie, choice);
         CTLoadoutMenu(client);
+    } else if (action == MenuAction_Cancel && param2 == MenuCancel_ExitBack) {
+    	CTLoadoutMenu(client);
     } else if (action == MenuAction_End) {
         delete menu;
     }
@@ -537,19 +611,21 @@ public void SetCTPistolMenuItems(Menu menu)
 
 public void CTPistolMenu(int client) {
     Menu menu = new Menu(MenuHandler_CTPistol);
+    menu.ExitBackButton = true;
     menu.SetTitle("Select a CT pistol:");
     SetCTPistolMenuItems(menu);
     menu.Display(client, MENU_TIME_LENGTH);
 }
 
-public int MenuHandler_CTPistol(Menu menu, MenuAction action, int param1, int param2) {
+public int MenuHandler_CTPistol(Menu menu, MenuAction action, int client, int param2) {
     if (action == MenuAction_Select) {
-        int client = param1;
         char choice[WEAPON_STRING_LENGTH];
         menu.GetItem(param2, choice, sizeof(choice));
         g_CTPistolChoice[client] = choice;
         SetClientCookie(client, g_hCTPistolChoiceCookie, choice);
         CTLoadoutMenu(client);
+    } else if (action == MenuAction_Cancel && param2 == MenuCancel_ExitBack) {
+    	CTLoadoutMenu(client);
     } else if (action == MenuAction_End) {
         delete menu;
     }
@@ -557,19 +633,21 @@ public int MenuHandler_CTPistol(Menu menu, MenuAction action, int param1, int pa
 
 public void CTPistolOnlyMenu(int client) {
     Menu menu = new Menu(MenuHandler_CTPistolOnly);
+    menu.ExitBackButton = true;
     menu.SetTitle("Select a CT pistol round weapon:");
     SetCTPistolMenuItems(menu);
     menu.Display(client, MENU_TIME_LENGTH);
 }
 
-public int MenuHandler_CTPistolOnly(Menu menu, MenuAction action, int param1, int param2) {
+public int MenuHandler_CTPistolOnly(Menu menu, MenuAction action, int client, int param2) {
     if (action == MenuAction_Select) {
-        int client = param1;
         char choice[WEAPON_STRING_LENGTH];
         menu.GetItem(param2, choice, sizeof(choice));
         g_CTPistolOnlyChoice[client] = choice;
         SetClientCookie(client, g_hCTPistolOnlyChoiceCookie, choice);
         CTLoadoutMenu(client);
+    } else if (action == MenuAction_Cancel && param2 == MenuCancel_ExitBack) {
+    	CTLoadoutMenu(client);
     } else if (action == MenuAction_End) {
         delete menu;
     }
@@ -577,19 +655,21 @@ public int MenuHandler_CTPistolOnly(Menu menu, MenuAction action, int param1, in
 
 public void GiveCTAwpMenu(int client) {
     Menu menu = new Menu(MenuHandler_CTAWP);
+    menu.ExitBackButton = true;
     menu.SetTitle("Receive AWPs on CT side?");
     AddMenuBool(menu, true, "Yes");
     AddMenuBool(menu, false, "No");
     menu.Display(client, MENU_TIME_LENGTH);
 }
 
-public int MenuHandler_CTAWP(Menu menu, MenuAction action, int param1, int param2) {
+public int MenuHandler_CTAWP(Menu menu, MenuAction action, int client, int param2) {
     if (action == MenuAction_Select) {
-        int client = param1;
         bool allowAwps = GetMenuBool(menu, param2);
         g_CTAwpChoice[client] = allowAwps;
         SetCookieBool(client, g_hCTAwpChoiceCookie, allowAwps);
         CTLoadoutMenu(client);
+    } else if (action == MenuAction_Cancel && param2 == MenuCancel_ExitBack) {
+    	CTLoadoutMenu(client);
     } else if (action == MenuAction_End) {
         delete menu;
     }
@@ -597,6 +677,7 @@ public int MenuHandler_CTAWP(Menu menu, MenuAction action, int param1, int param
 
 public void TRifleMenu(int client) {
     Menu menu = new Menu(MenuHandler_TRifle);
+    menu.ExitBackButton = true;
     menu.SetTitle("Select a T rifle:");
     menu.AddItem("ak47", "AK-47");
     menu.AddItem("sg556", "SG-553");
@@ -605,14 +686,15 @@ public void TRifleMenu(int client) {
     menu.Display(client, MENU_TIME_LENGTH);
 }
 
-public int MenuHandler_TRifle(Menu menu, MenuAction action, int param1, int param2) {
+public int MenuHandler_TRifle(Menu menu, MenuAction action, int client, int param2) {
     if (action == MenuAction_Select) {
-        int client = param1;
         char choice[WEAPON_STRING_LENGTH];
         menu.GetItem(param2, choice, sizeof(choice));
         g_TRifleChoice[client] = choice;
         SetClientCookie(client, g_hTRifleChoiceCookie, choice);
         TLoadoutMenu(client);
+    } else if (action == MenuAction_Cancel && param2 == MenuCancel_ExitBack) {
+    	TLoadoutMenu(client);
     } else if (action == MenuAction_End) {
         delete menu;
     }
@@ -630,19 +712,21 @@ public void SetTPistolMenuItems(Menu menu)
 
 public void TPistolMenu(int client) {
     Menu menu = new Menu(MenuHandler_TPistol);
+    menu.ExitBackButton = true;
     menu.SetTitle("Select a T pistol:");
     SetTPistolMenuItems(menu);
     menu.Display(client, MENU_TIME_LENGTH);
 }
 
-public int MenuHandler_TPistol(Menu menu, MenuAction action, int param1, int param2) {
+public int MenuHandler_TPistol(Menu menu, MenuAction action, int client, int param2) {
     if (action == MenuAction_Select) {
-        int client = param1;
         char choice[WEAPON_STRING_LENGTH];
         menu.GetItem(param2, choice, sizeof(choice));
         g_TPistolChoice[client] = choice;
         SetClientCookie(client, g_hTPistolChoiceCookie, choice);
         TLoadoutMenu(client);
+    } else if (action == MenuAction_Cancel && param2 == MenuCancel_ExitBack) {
+    	TLoadoutMenu(client);
     } else if (action == MenuAction_End) {
         delete menu;
     }
@@ -650,19 +734,21 @@ public int MenuHandler_TPistol(Menu menu, MenuAction action, int param1, int par
 
 public void TPistolOnlyMenu(int client) {
     Menu menu = new Menu(MenuHandler_TPistolOnly);
+    menu.ExitBackButton = true;
     menu.SetTitle("Select a T pistol round weapon:");
     SetTPistolMenuItems(menu);
     menu.Display(client, MENU_TIME_LENGTH);
 }
 
-public int MenuHandler_TPistolOnly(Menu menu, MenuAction action, int param1, int param2) {
+public int MenuHandler_TPistolOnly(Menu menu, MenuAction action, int client, int param2) {
     if (action == MenuAction_Select) {
-        int client = param1;
         char choice[WEAPON_STRING_LENGTH];
         menu.GetItem(param2, choice, sizeof(choice));
         g_TPistolOnlyChoice[client] = choice;
         SetClientCookie(client, g_hTPistolOnlyChoiceCookie, choice);
         TLoadoutMenu(client);
+    } else if (action == MenuAction_Cancel && param2 == MenuCancel_ExitBack) {
+    	TLoadoutMenu(client);
     } else if (action == MenuAction_End) {
         delete menu;
     }
@@ -670,19 +756,21 @@ public int MenuHandler_TPistolOnly(Menu menu, MenuAction action, int param1, int
 
 public void GiveTAwpMenu(int client) {
     Menu menu = new Menu(MenuHandler_TAWP);
+    menu.ExitBackButton = true;
     menu.SetTitle("Receive AWPs on T side?");
     AddMenuBool(menu, true, "Yes");
     AddMenuBool(menu, false, "No");
     menu.Display(client, MENU_TIME_LENGTH);
 }
 
-public int MenuHandler_TAWP(Menu menu, MenuAction action, int param1, int param2) {
+public int MenuHandler_TAWP(Menu menu, MenuAction action, int client, int param2) {
     if (action == MenuAction_Select) {
-        int client = param1;
         bool allowAwps = GetMenuBool(menu, param2);
         g_TAwpChoice[client] = allowAwps;
         SetCookieBool(client, g_hTAwpChoiceCookie, allowAwps);
         TLoadoutMenu(client);
+    } else if (action == MenuAction_Cancel && param2 == MenuCancel_ExitBack) {
+    	TLoadoutMenu(client);
     } else if (action == MenuAction_End) {
         delete menu;
     }
